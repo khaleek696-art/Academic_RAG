@@ -1,0 +1,4 @@
+Format the answer specifically for university exam preparation:
+1. Definition & Overview (2-3 sentences)
+2. Core Key Points (Numbered 1-5 with bold technical terms)
+3. Exam Tip / Key Takeaway

@@ -1,0 +1,19 @@
+# Python & Venv
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment variables (secrets)
+.env
+
+# Data & Uploads & Vector DB
+data/app.db
+data/raw/
+data/vector_index/
+data/qdrant_db/
+data/bm25_index/
+
+# OS specific
+.DS_Store

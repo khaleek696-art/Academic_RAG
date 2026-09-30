@@ -1,0 +1,9 @@
+Given the following conversation history and a follow-up question, rewrite the follow-up question to be a standalone academic search query.
+
+CHAT HISTORY:
+{chat_history}
+
+FOLLOW-UP QUESTION:
+{question}
+
+STANDALONE QUERY:
