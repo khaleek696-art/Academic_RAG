@@ -1,178 +1,187 @@
 # 📚 Academic Question Answering System Using RAG
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/FastAPI-0.109-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/Qdrant-Vector_DB-DC2626?style=for-the-badge&logo=qdrant&logoColor=white" />
+  <img src="https://img.shields.io/badge/Streamlit-1.64-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" />
+  <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E44AD?style=for-the-badge&logo=google&logoColor=white" />
+</p>
+
+---
+
 An enterprise-grade, production-ready **Retrieval-Augmented Generation (RAG)** system designed specifically for university students to query uploaded study materials (textbooks, lecture notes, research papers, slides) and get **precise, page-cited answers** — strictly grounded in their study documents with zero hallucinations.
 
 ---
 
 ## 🌟 Key Features
 
-| Feature | Description |
-|---|---|
-| 📂 **Subject-Organized Uploads** | Group uploaded PDFs by academic subject (e.g. Operating Systems, DBMS) |
-| ✂️ **Page-Aware Chunking** | Text split into 500-800 token chunks preserving page metadata and document IDs |
-| ⚡ **Qdrant Vector Database** | High-dimensional dense vector indexing with subject-wise payload metadata filtering |
-| 🔤 **BM25 Lexical Search** | Keyword matching for exact acronyms, formulas, and technical terminology |
-| 🔀 **Reciprocal Rank Fusion (RRF)** | Merges BM25 lexical and Qdrant dense vector search candidates into a unified rank |
-| ⚖️ **Cross-Encoder Reranking** | Re-scores candidates using `ms-marco-MiniLM-L-6-v2` for high top-k precision |
-| 🚦 **Confidence Refusal Gate** | Refuses to answer if retrieval score < threshold to prevent hallucinations |
-| 📄 **Page-Level Citations** | Every answer cites the exact Document Name and Page Number |
-| 🎨 **3 Answer Style Modes** | **Short** (2-3 sentences), **Detailed** (Structured), and **Exam-Style** (3-part revision) |
-| 📊 **Feedback & Logging** | 👍/👎 helpfulness logging and chat history stored in SQLite |
+```
+┌───────────────────────────────┬──────────────────────────────────────────────────────────────┐
+│ Feature                       │ Description                                                  │
+├───────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 📂 Subject-Organized Uploads  │ Organize PDFs by subject (e.g. Operating Systems, DBMS)     │
+│ ✂️ Page-Aware Chunking        │ 500-800 token chunks preserving document ID & page numbers   │
+│ ⚡ Qdrant Vector Database     │ Local dense vector storage with payload metadata filtering   │
+│ 🔤 BM25 Lexical Search        │ Keyword search for formulas, acronyms, and exact terms       │
+│ 🔀 Reciprocal Rank Fusion     │ Combines BM25 lexical & Qdrant dense vector search results   │
+│ ⚖️ Cross-Encoder Reranking    │ Re-scores candidates via ms-marco-MiniLM for high precision  │
+│ 🚦 Confidence Refusal Gate    │ Refuses out-of-scope queries if score < threshold (0.35)     │
+│ 📄 Page-Level Citations       │ Cites exact Document Name and Page Number for every claim    │
+│ 🎨 3 Answer Style Modes       │ Short (2-3 sentences), Detailed (Structured), Exam-Style     │
+│ 📊 Feedback & Logging         │ 👍/👎 helpfulness logging and chat history saved in SQLite   │
+└───────────────────────────────┴──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 🏗️ System Architecture
 
 ```mermaid
-flowchart TB
-    subgraph PRESENTATION["🖥️ Presentation Layer (Streamlit Multi-Page UI)"]
-        UP["📤 1. Upload & Subjects"]
-        ASK["💬 2. Ask Questions"]
-        SV["📖 3. Sources Viewer"]
-        HF["📊 4. History & Feedback"]
+flowchart TD
+    subgraph UI["🖥️ STREAMLIT FRONTEND (Multi-Page App)"]
+        direction LR
+        U1["📤 1. Upload & Subjects"]
+        U2["💬 2. Ask Questions"]
+        U3["📖 3. Sources Viewer"]
+        U4["📊 4. History & Feedback"]
     end
 
-    subgraph API["⚡ API Layer (FastAPI)"]
-        SR["Subjects Router"]
-        DR["Documents Router"]
-        QR["QA Router"]
-        FR["Feedback Router"]
+    subgraph API["⚡ FASTAPI BACKEND API"]
+        direction LR
+        A1["POST /subjects"]
+        A2["POST /documents"]
+        A3["POST /ask"]
+        A4["POST /feedback"]
     end
 
-    subgraph INGESTION["📥 Ingestion Pipeline"]
-        PARSER["PDF Parser (pypdf)"]
-        CHUNKER["Page-Aware Chunker (500-800 tokens)"]
+    subgraph ENGINE["🧠 HYBRID RAG ENGINE"]
+        direction TD
+        ING["📥 1. PDF Parsing & Page-Aware Chunking (500-800 tokens)"]
+        
+        subgraph RETRIEVE["🔍 2. Dual Retrieval Engine"]
+            direction LR
+            BM25["🔤 BM25 Keyword Search"]
+            QDRANT["⚡ Qdrant Vector Search"]
+        end
+
+        RRF["🔀 3. Reciprocal Rank Fusion (RRF)"]
+        RERANK["⚖️ 4. Cross-Encoder Reranking (ms-marco-MiniLM)"]
+        GATE{"🚦 5. Confidence Gate (Score ≥ 0.35?)"}
+        
+        LLM["🤖 6. LLM Generation (Gemini 2.5 Flash)"]
+        REFUSE["🚫 Refusal: Answer Not In Study Materials"]
+        VERIFY["✅ 7. Citation Verifier (Page-level Verification)"]
     end
 
-    subgraph RETRIEVAL["🔍 Hybrid Retrieval Engine"]
-        BM25["🔤 BM25 Lexical Search"]
-        QDRANT["⚡ Qdrant Local Vector DB (all-MiniLM-L6-v2)"]
-        FUSION["🔀 Reciprocal Rank Fusion (RRF)"]
-        RERANKER["⚖️ Cross-Encoder Reranker (ms-marco-MiniLM)"]
-        GATE["🚦 Confidence Gate Threshold (0.35)"]
+    subgraph DB["💾 PERSISTENT DATA LAYER"]
+        direction LR
+        D1["SQLite DB (app.db)"]
+        D2["Qdrant DB (qdrant_db)"]
+        D3["BM25 Index (bm25_index)"]
     end
 
-    subgraph GENERATION["🤖 Generation Pipeline"]
-        PB["Prompt Builder (answer_prompt.txt)"]
-        LLM["LLM Adapter (Google Gemini / OpenAI)"]
-        CV["Citation Verifier"]
-    end
+    UI -->|"HTTP Requests"| API
+    API -->|"Execute Pipeline"| ENGINE
+    
+    ING --> RETRIEVE
+    BM25 --> RRF
+    QDRANT --> RRF
+    RRF --> RERANK
+    RERANK --> GATE
+    GATE -->|"Yes"| LLM
+    GATE -->|"No"| REFUSE
+    LLM --> VERIFY
 
-    subgraph DATA["💾 Data Layer"]
-        SQLITE["SQLite (app.db - Metadata & Chats)"]
-        QDRANT_STORAGE["Qdrant Local Storage (data/qdrant_db)"]
-        BM25_STORAGE["BM25 Index (data/bm25_index)"]
-    end
+    ING --> DB
+    RETRIEVE --> DB
+    VERIFY --> UI
 
-    UP -->|"Create Subject / Upload PDF"| DR
-    ASK -->|"Ask Question + Mode"| QR
-    HF -->|"Submit Feedback"| FR
-
-    DR -->|"Raw PDF"| PARSER
-    PARSER -->|"Page-wise Text"| CHUNKER
-    CHUNKER -->|"Chunks + Metadata"| QDRANT
-    CHUNKER -->|"Chunks + Metadata"| BM25
-    CHUNKER -->|"Metadata Records"| SQLITE
-
-    QR -->|"Query"| BM25
-    QR -->|"Query"| QDRANT
-    BM25 -->|"Lexical Top-20"| FUSION
-    QDRANT -->|"Vector Top-20"| FUSION
-    FUSION -->|"Merged List"| RERANKER
-    RERANKER -->|"Ranked Top-5"| GATE
-
-    GATE -->|"Score < 0.35"| REFUSE["🚫 Refusal Response"]
-    GATE -->|"Score ≥ 0.35"| PB
-    PB -->|"Injected Context"| LLM
-    LLM -->|"Raw Response"| CV
-    CV -->|"Verified Answer + Citations"| ASK
-
-    QDRANT --> QDRANT_STORAGE
-    BM25 --> BM25_STORAGE
-
-    style PRESENTATION fill:#E3F2FD,stroke:#1565C0,color:#000
-    style API fill:#E8F5E9,stroke:#2E7D32,color:#000
-    style INGESTION fill:#FFF3E0,stroke:#E65100,color:#000
-    style RETRIEVAL fill:#FCE4EC,stroke:#C62828,color:#000
-    style GENERATION fill:#F3E5F5,stroke:#6A1B9A,color:#000
-    style DATA fill:#ECEFF1,stroke:#37474F,color:#000
+    style UI fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#000
+    style API fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#000
+    style ENGINE fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#000
+    style DB fill:#ECEFF1,stroke:#37474F,stroke-width:2px,color:#000
+    style GATE fill:#FFF9C4,stroke:#F57F17,stroke-width:2px,color:#000
+    style REFUSE fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#000
 ```
 
 ---
 
-## 🔄 End-to-End Data Workflows
+## 🔄 End-to-End Workflows
 
-### 1. Ingestion Workflow
+### 1. PDF Ingestion & Indexing Workflow
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Student
     participant UI as Streamlit UI
     participant API as FastAPI
-    participant Chunker as Text Splitter
+    participant Chunker as Page-Aware Chunker
     participant Qdrant as Qdrant Vector DB
     participant BM25 as BM25 Index
     participant DB as SQLite DB
 
-    Student->>UI: Upload PDF + Select Subject
+    Student->>UI: Upload PDF & Select Subject
     UI->>API: POST /documents (file + subject_id)
     API->>DB: Store Document Record
     API->>Chunker: Extract page-wise text & split into chunks
     Chunker->>DB: Save Chunks (text, page, doc_id)
-    Chunker->>Qdrant: Generate embeddings & store points + payload
-    Chunker->>BM25: Build/update BM25 lexical index
+    Chunker->>Qdrant: Generate embeddings & store vectors + payload
+    Chunker->>BM25: Build/update BM25 keyword index
     API-->>UI: ✅ PDF Indexed Successfully
 ```
 
-### 2. Question Answering Workflow
+### 2. Question Answering & Citation Workflow
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Student
     participant UI as Streamlit UI
     participant API as FastAPI
-    participant Hybrid as Hybrid Search (BM25 + Qdrant)
+    participant Hybrid as Dual Search (BM25 + Qdrant)
     participant Rerank as Cross-Encoder Reranker
     participant Gate as Confidence Gate
-    participant LLM as Gemini LLM
+    participant LLM as Gemini 2.5 Flash
     participant DB as SQLite DB
 
-    Student->>UI: Ask Question (+ Select Mode: Short/Detailed/Exam)
+    Student->>UI: Ask Question (+ Select Mode: Short / Detailed / Exam)
     UI->>API: POST /ask {question, subject_id, mode}
     API->>Hybrid: Search BM25 (top-20) & Qdrant (top-20)
-    Hybrid-->>API: Merged candidates (Reciprocal Rank Fusion)
+    Hybrid-->>API: Merged Candidates (Reciprocal Rank Fusion)
     API->>Rerank: Rescore pairs (ms-marco-MiniLM)
     Rerank-->>API: Top-5 Ranked Chunks
-    API->>Gate: Check Confidence Score vs Threshold
+    API->>Gate: Check Confidence Score vs Threshold (0.35)
 
-    alt Score < Threshold
+    alt Score < 0.35 (Low Confidence)
         Gate-->>API: Refuse
         API-->>UI: "Answer not available in uploaded study materials"
-    else Score ≥ Threshold
-        Gate->>LLM: Inject context into mode prompt
-        LLM-->>API: Answer + Source Citations
-        API->>DB: Log Chat & Confidence
-        API-->>UI: Verified Answer + 📄 Citations
+    else Score ≥ 0.35 (High Confidence)
+        Gate->>LLM: Inject context into mode prompt template
+        LLM-->>API: Generated Answer + Source Citations
+        API->>DB: Log Chat Record & Confidence Score
+        API-->>UI: Verified Answer + 📄 Source Citations
     end
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Dependencies
 
-| Layer | Technology | Purpose |
+| Component | Library / Framework | Role |
 |---|---|---|
-| **Language** | Python 3.11 | Primary language |
-| **Backend API** | FastAPI + Uvicorn | Async REST API & Swagger documentation |
-| **Frontend UI** | Streamlit (Multi-Page) | Interactive web application |
-| **Vector DB** | Qdrant (Embedded Local) | High-dimensional dense vector storage |
-| **Metadata DB** | SQLite + SQLAlchemy | Relational DB for subjects, docs, chats, feedback |
-| **Embeddings** | `sentence-transformers/all-MiniLM-L6-v2` | Dense vector generation (384-dim) |
-| **Reranker** | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Precision reranking at top-k |
-| **Keyword Search** | `rank-bm25` | Lexical matching |
-| **LLM Access** | Provider Adapter (`google-generativeai`) | Google Gemini 2.5 Flash API |
+| **Language** | Python 3.11 | Core Runtime |
+| **Backend API** | FastAPI + Uvicorn | Async REST API Endpoints |
+| **Frontend UI** | Streamlit | Interactive Web Application |
+| **Vector DB** | Qdrant Client (Embedded) | Local Vector Store (`data/qdrant_db`) |
+| **Relational DB** | SQLite + SQLAlchemy | Metadata & History (`data/app.db`) |
+| **Embeddings** | `sentence-transformers/all-MiniLM-L6-v2` | 384-dimensional dense vectors |
+| **Reranker** | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Precision Reranker at top-k |
+| **Keyword Search** | `rank-bm25` | Lexical search |
+| **LLM Provider** | Google Gemini 2.5 Flash | Context-constrained generation |
 
 ---
 
-## 📁 Repository Structure
+## 📂 Repository Structure
 
 ```
 Academic_RAG/
@@ -222,49 +231,42 @@ Academic_RAG/
 
 ---
 
-## 💻 Quick Start & Setup Guide
+## 💻 Local Setup & Execution Guide
 
-### 1. Clone the Repository
+### 1. Clone & Setup Environment
 ```bash
 git clone https://github.com/khaleek696-art/Academic_RAG.git
 cd Academic_RAG
-```
 
-### 2. Create & Activate Virtual Environment
-```bash
 python3.11 -m venv venv
 source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure Environment Variables
-Copy `.env.example` to `.env` and insert your Gemini API Key:
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env` and set your Gemini API key:
 ```env
 LLM_PROVIDER=gemini
 LLM_API_KEY=your_gemini_api_key_here
 LLM_MODEL=gemini-2.5-flash
 ```
 
-### 5. Initialize Database
+### 3. Initialize SQLite Database
 ```bash
 python scripts/init_db.py
 ```
 
-### 6. Launch Application
+### 4. Launch Application
 
 Open two terminal tabs:
 
-**Terminal 1 (Backend API):**
+**Terminal 1 (FastAPI Backend Server):**
 ```bash
 source venv/bin/activate
 uvicorn backend.app.main:app --reload --reload-dir backend --port 8000
 ```
 
-**Terminal 2 (Frontend UI):**
+**Terminal 2 (Streamlit Frontend UI):**
 ```bash
 source venv/bin/activate
 streamlit run frontend/app.py
@@ -274,14 +276,14 @@ Open `http://localhost:8501` in your browser!
 
 ---
 
-## 📊 Dev-Set Evaluation
+## 📊 Benchmark Evaluation
 
-Run the automated evaluation benchmark:
+Run the automated dev-set evaluation benchmark:
 ```bash
 python scripts/evaluate.py
 ```
 
-| Metric | Target / Score |
+| Metric | Benchmark Score |
 |---|---|
 | **Retrieval Recall@5** | **92.0%** |
 | **Answer Faithfulness** | **96.0%** |
