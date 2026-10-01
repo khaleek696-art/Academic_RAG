@@ -72,10 +72,15 @@ export const askQuestion = async (question, subjectId = null, mode = 'detailed')
 // Feedback & Eval Endpoints
 export const submitFeedback = async (chatId, rating, feedbackText = '') => {
   const response = await api.post('/feedback', {
-    chat_id: chatId,
+    message_id: chatId,
     helpful: rating >= 3,
     comment: feedbackText,
   });
+  return response.data;
+};
+
+export const getChatHistory = async () => {
+  const response = await api.get('/ask/history');
   return response.data;
 };
 

@@ -61,3 +61,19 @@ def ask_question(payload: AskRequest, db: Session = Depends(get_db)):
         message_id=chat.id,
         refused=result["refused"]
     )
+
+@router.get("/history")
+def get_chat_history(db: Session = Depends(get_db)):
+    chats = db.query(Chat).order_by(Chat.created_at.desc()).limit(20).all()
+    return [
+        {
+            "id": c.id,
+            "question": c.question,
+            "answer": c.answer,
+            "confidence": c.confidence,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "subject_id": c.subject_id
+        }
+        for c in chats
+    ]
+

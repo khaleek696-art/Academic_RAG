@@ -1,18 +1,37 @@
-import React, { useState } from 'react';
-import { History, Star, Send, CheckCircle, MessageSquare, BookOpen, Download } from 'lucide-react';
-import { submitFeedback } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { History, Star, Send, CheckCircle, MessageSquare, BookOpen, Download, FileText } from 'lucide-react';
+import { submitFeedback, getChatHistory } from '../services/api';
 
 export default function HistoryPage() {
   const [rating, setRating] = useState(5);
   const [feedbackText, setFeedbackText] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [selectedChatId, setSelectedChatId] = useState(null);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  async function fetchHistory() {
+    try {
+      const data = await getChatHistory();
+      if (Array.isArray(data) && data.length > 0) {
+        setHistoryItems(data);
+        setSelectedChatId(data[0].id);
+      }
+    } catch (err) {
+      console.error("Failed to load chat history", err);
+    }
+  }
 
   async function handleFeedback(e) {
     e.preventDefault();
     setLoading(true);
     try {
-      await submitFeedback(1, rating, feedbackText);
+      const chatIdToUse = selectedChatId || (historyItems.length > 0 ? historyItems[0].id : 1);
+      await submitFeedback(chatIdToUse, rating, feedbackText);
       setSubmitted(true);
       setFeedbackText('');
     } catch (err) {
@@ -55,6 +74,23 @@ export default function HistoryPage() {
             </div>
           ) : (
             <form onSubmit={handleFeedback} className="space-y-4">
+              {historyItems.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Select Question Session</label>
+                  <select
+                    value={selectedChatId || ''}
+                    onChange={(e) => setSelectedChatId(Number(e.target.value))}
+                    className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    {historyItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        Session #{item.id}: {item.question.slice(0, 50)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">Rating (1 to 5 Stars)</label>
                 <div className="flex gap-2">
@@ -91,37 +127,58 @@ export default function HistoryPage() {
                 disabled={loading}
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
               >
-                <Send className="w-4 h-4" /> Submit Feedback
+                <Send className="w-4 h-4" /> {loading ? "Submitting..." : "Submit Feedback"}
               </button>
             </form>
           )}
         </div>
 
-        {/* Saved Study Sessions */}
+        {/* Saved Study Sessions & History Hub */}
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-5">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-emerald-400" /> Export & Revision Hub
           </h2>
-          <div className="space-y-3">
-            <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-200">Operating Systems Exam Notes</h4>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">5-Mark & 10-Mark Answer Format</p>
-              </div>
-              <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                <Download className="w-3.5 h-3.5" /> PDF Ready
-              </span>
-            </div>
+          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+            {historyItems.length > 0 ? (
+              historyItems.map((item) => (
+                <div key={item.id} className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-bold text-slate-200 truncate">{item.question}</h4>
+                    <p className="text-[10px] text-slate-400 line-clamp-2 mt-1">{item.answer}</p>
+                    <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-500 font-mono">
+                      <span>Confidence: {Math.round((item.confidence || 0) * 100)}%</span>
+                      <span>•</span>
+                      <span>{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recent'}</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 whitespace-nowrap">
+                    <Download className="w-3.5 h-3.5" /> PDF Ready
+                  </span>
+                </div>
+              ))
+            ) : (
+              <>
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">Operating Systems Exam Notes</h4>
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">5-Mark & 10-Mark Answer Format</p>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                    <Download className="w-3.5 h-3.5" /> PDF Ready
+                  </span>
+                </div>
 
-            <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-200">Database Management Citation Audit</h4>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">Page-Aware Sources Verified</p>
-              </div>
-              <span className="text-xs font-semibold text-indigo-400 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
-                <Download className="w-3.5 h-3.5" /> Saved
-              </span>
-            </div>
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">Database Management Citation Audit</h4>
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">Page-Aware Sources Verified</p>
+                  </div>
+                  <span className="text-xs font-semibold text-indigo-400 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+                    <FileText className="w-3.5 h-3.5" /> Saved
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
