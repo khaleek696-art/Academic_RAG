@@ -12,6 +12,8 @@ from backend.app.services.ingestion import ingestion_service
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
+MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB Limit
+
 @router.post("", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     subject_id: int = Form(...),
@@ -22,28 +24,35 @@ async def upload_document(
     if not subject:
         raise HTTPException(status_code=404, detail=f"Subject ID {subject_id} not found.")
 
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    # 1. Sanitize Filename (Path Traversal Prevention)
+    clean_filename = os.path.basename(file.filename)
+    if not clean_filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Security Warning: Only PDF files (.pdf) are permitted.")
+
+    # 2. File Size Validation (DoS Prevention)
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum permitted PDF size is 25 MB.")
 
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / file.filename
+    file_path = upload_dir / clean_filename
 
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(contents)
 
-    # 1. Create Document Record in DB
-    doc = Document(subject_id=subject_id, filename=file.filename, pages=0)
+    # 3. Create Document Record in DB
+    doc = Document(subject_id=subject_id, filename=clean_filename, pages=0)
     db.add(doc)
     db.commit()
     db.refresh(doc)
 
-    # 2. Run Full Ingestion (Parse -> Chunk -> SQLite -> Qdrant -> BM25)
+    # 4. Run Full Ingestion (Parse -> Chunk -> SQLite -> Qdrant -> BM25)
     ingest_result = ingestion_service.process_pdf(
         file_path=str(file_path),
         document_id=doc.id,
         subject_id=subject_id,
-        filename=file.filename,
+        filename=clean_filename,
         db=db
     )
 

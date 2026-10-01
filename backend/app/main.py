@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import settings, ensure_directories
 from backend.app.db.session import engine, Base
-from backend.app.api.routes import subjects, documents, qa, feedback, eval
+from backend.app.api.routes import subjects, documents, qa, feedback, eval, auth
 
 # Create database tables automatically on startup
 ensure_directories()
@@ -23,7 +25,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global Anti-Crash Exception Handler (Keeps Uvicorn Server 100% Online)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Unhandled exception caught on {request.url}: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An unexpected server error occurred. The system is resilient and remains online."}
+    )
+
 # Include Routers
+app.include_router(auth.router)
 app.include_router(subjects.router)
 app.include_router(documents.router)
 app.include_router(qa.router)

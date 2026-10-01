@@ -9,11 +9,19 @@ __pycache__/
 .env
 
 # Data & Uploads & Vector DB
-data/app.db
+data/app.db*
 data/raw/
 data/vector_index/
 data/qdrant_db/
 data/bm25_index/
+
+# Frontend builds & dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Backup
+frontend_streamlit_backup/
 
 # OS specific
 .DS_Store

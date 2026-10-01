@@ -1,3 +1,4 @@
+import html
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.app.db.session import get_db
@@ -7,32 +8,44 @@ from backend.app.services.answer_generator import answer_generator
 
 router = APIRouter(prefix="/ask", tags=["Question Answering"])
 
+MAX_QUERY_LENGTH = 1500
+
 @router.post("", response_model=AskResponse)
 def ask_question(payload: AskRequest, db: Session = Depends(get_db)):
+    # 1. Input Sanitization & Length Check
+    clean_question = payload.question.strip()
+    if len(clean_question) > MAX_QUERY_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Question exceeds maximum limit of {MAX_QUERY_LENGTH} characters.")
+
+    # Escape raw HTML tags to prevent XSS injection
+    sanitized_question = html.escape(clean_question)
+
     if payload.subject_id:
         subj = db.query(Subject).filter(Subject.id == payload.subject_id).first()
         if not subj:
             raise HTTPException(status_code=404, detail=f"Subject ID {payload.subject_id} not found.")
 
-    # Execute Hybrid RAG Pipeline (BM25 + Qdrant + RRF + Reranker + Gate + LLM + Verifier)
+    # 2. Execute Hybrid RAG Pipeline (BM25 + Qdrant + RRF + Reranker + Gate + LLM + Verifier)
     result = answer_generator.generate_answer(
-        question=payload.question,
+        question=sanitized_question,
         subject_id=payload.subject_id,
         mode=payload.mode or "detailed"
     )
 
     citations_data = [
         Citation(
-            document_name=c["document_name"],
-            page_number=c["page_number"],
-            snippet=c.get("snippet")
+            document_name=c.get("document_name") or c.get("filename") or "Textbook.pdf",
+            page_number=c.get("page_number") or c.get("page") or 1,
+            filename=c.get("document_name") or c.get("filename") or "Textbook.pdf",
+            page=c.get("page_number") or c.get("page") or 1,
+            snippet=c.get("snippet") or c.get("text") or ""
         )
-        for c in result["citations"]
+        for c in result.get("citations", [])
     ]
 
     chat = Chat(
         subject_id=payload.subject_id,
-        question=payload.question,
+        question=sanitized_question,
         answer=result["answer"],
         citations_json=[c.dict() for c in citations_data],
         confidence=result["confidence"]

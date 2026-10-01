@@ -2,6 +2,34 @@ from datetime import datetime
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 
+# User & Auth Schemas
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100, description="Full Name")
+    email: str = Field(..., description="Email Address")
+    password: str = Field(..., min_length=6, description="Password (min 6 chars)")
+    role: Optional[str] = Field("student", description="Role: student, teacher, researcher")
+    department: Optional[str] = Field(None, description="Department / Major")
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    role: str
+    department: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
 # Subject Schemas
 class SubjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Name of the academic subject")
@@ -46,6 +74,8 @@ class AskRequest(BaseModel):
 class Citation(BaseModel):
     document_name: str
     page_number: int
+    filename: Optional[str] = None
+    page: Optional[int] = None
     snippet: Optional[str] = None
 
 class AskResponse(BaseModel):

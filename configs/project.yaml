@@ -1,0 +1,29 @@
+# Academic RAG System Production Configuration
+project:
+  name: "Academic Question Answering System Using RAG"
+  id: "P_102"
+  version: "1.0.0"
+
+rag_pipeline:
+  chunking:
+    size: 500
+    overlap: 50
+    page_aware: true
+  retrieval:
+    dense_top_k: 20
+    sparse_top_k: 20
+    rrf_k: 60
+  reranking:
+    model: "ms-marco-MiniLM-L-6-v2"
+    top_k: 3
+  refusal_gate:
+    confidence_threshold: 0.35
+  llm:
+    provider: "gemini"
+    model: "gemini-2.5-flash"
+    temperature: 0.2
+
+database:
+  sqlite_path: "data/app.db"
+  qdrant_path: "data/qdrant_db"
+  bm25_index_path: "data/bm25_index"

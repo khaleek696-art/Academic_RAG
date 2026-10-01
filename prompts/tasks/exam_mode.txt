@@ -1,0 +1,4 @@
+Format the answer specifically for University Exam Preparation into 3 distinct sections:
+1. ### 📌 Definition & Overview (2-3 sentences)
+2. ### 🔑 Core Key Points (Numbered list with bold technical terms)
+3. ### 💡 Exam Tip / Key Takeaway (High-yield summary for quick revision)

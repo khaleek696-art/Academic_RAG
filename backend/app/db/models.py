@@ -3,13 +3,29 @@ from sqlalchemy import Column, Integer, String, Text, Float, Boolean, DateTime, 
 from sqlalchemy.orm import relationship
 from backend.app.db.session import Base
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(50), default="student")  # student, teacher, researcher
+    department = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    subjects = relationship("Subject", back_populates="user")
+    chats = relationship("Chat", back_populates="user")
+
 class Subject(Base):
     __tablename__ = "subjects"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User", back_populates="subjects")
     documents = relationship("Document", back_populates="subject", cascade="all, delete-orphan")
     chats = relationship("Chat", back_populates="subject", cascade="all, delete-orphan")
 
@@ -40,6 +56,7 @@ class Chat(Base):
     __tablename__ = "chats"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True)
     question = Column(Text, nullable=False)
     answer = Column(Text, nullable=False)
@@ -47,6 +64,7 @@ class Chat(Base):
     confidence = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User", back_populates="chats")
     subject = relationship("Subject", back_populates="chats")
     feedback = relationship("Feedback", back_populates="chat", uselist=False, cascade="all, delete-orphan")
 
